@@ -1,0 +1,138 @@
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	// ==================== if 语句 ====================
+
+	// 1. if 前置语句（变量定义），作用域仅限 if/else 块
+	score := 88
+	if score >= 60 {
+		fmt.Println("及格")
+	} else {
+		fmt.Println("不及格")
+	}
+	// fmt.Println(score) // 报错：score 未定义（作用域只在 if/else 内）
+
+	// 2. 多条件判断
+	age := 20
+	if age >= 18 {
+		fmt.Println("成年人")
+	} else if age >= 12 {
+		fmt.Println("青少年")
+	} else {
+		fmt.Println("儿童")
+	}
+
+	// ==================== for 循环 ====================
+
+	// 3. 三段式 for
+	fmt.Print("三段式：")
+	for i := 0; i < 3; i++ {
+		fmt.Print(i, " ")
+	}
+	fmt.Println()
+
+	// 4. 条件 for（等价 while）
+	fmt.Print("条件for：")
+	j := 0
+	for j < 3 {
+		fmt.Print(j, " ")
+		j++
+	}
+	fmt.Println()
+
+	// 5. 无限 for
+	fmt.Print("无限for：")
+	k := 0
+	for {
+		k++
+		time.Sleep(1 * time.Second)
+		if k > 5 {
+			break
+		}
+		fmt.Print(k, " ")
+	}
+	fmt.Println()
+
+	// 6. continue 跳过本次循环
+	fmt.Print("continue：")
+	for i := 0; i < 5; i++ {
+		if i == 2 {
+			continue // 跳过 2
+		}
+		fmt.Print(i, " ")
+	}
+	fmt.Println()
+
+	// 7. 标签 break（跳出多层循环）
+	//outer:
+	//	for i := 0; i < 3; i++ {
+	//		for j := 0; j < 3; j++ {
+	//			if i == 1 && j == 1 {
+	//				fmt.Println("\n跳出外层循环")
+	//				break outer
+	//			}
+	//			fmt.Printf("(%d,%d) ", i, j)
+	//		}
+	//	}
+
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			if i == 1 && j == 1 {
+				fmt.Println("\n跳出外层循环")
+				break
+			}
+			fmt.Printf("(%d,%d) ", i, j)
+		}
+	}
+
+	// ==================== range 遍历 ====================
+
+	// 8. range 遍历切片
+	fmt.Println("\n--- 遍历切片 ---")
+	arr := []string{"a", "b", "c"}
+	for idx, val := range arr {
+		fmt.Printf("索引%d：%s\n", idx, val)
+	}
+
+	// 9. 只需要值（忽略索引）
+	fmt.Println("\n--- 只取值 ---")
+	for _, val := range arr {
+		fmt.Print(val, " ")
+	}
+	fmt.Println()
+
+	// 10. range 遍历字符串（rune）
+	fmt.Println("\n--- 遍历字符串 ---")
+	s := "中文"
+	for idx, r := range s {
+		fmt.Printf("位置%d 字节索引%d 字符：%c\n", idx, idx, r)
+	}
+
+	// 11. range 遍历 map
+	fmt.Println("\n--- 遍历 map ---")
+	m := map[string]int{
+		"张三": 18,
+		"李四": 20,
+	}
+	for key, val := range m {
+		fmt.Printf("%s：%d岁\n", key, val)
+	}
+
+	// 12. range 遍历 channel
+	fmt.Println("\n--- 遍历 channel ---")
+	ch := make(chan int, 3)
+	ch <- 1
+	ch <- 2
+	ch <- 3
+	close(ch) // 必须关闭，否则 range 会阻塞
+
+	for val := range ch {
+		fmt.Print(val, " ")
+	}
+	fmt.Println()
+}

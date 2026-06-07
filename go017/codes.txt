@@ -1,0 +1,214 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// 公共基础：结构体、map全局变量（复用全案例）
+type Address struct {
+	City string `json:"city"`
+}
+type User struct {
+	Name    string        `json:"name"`
+	Score   int           `json:"score"`
+	Address `json:"addr"` //匿名嵌套结构体
+}
+
+// 全局存储用户
+var userMap = make(map[string]User)
+
+// ======================【知识点1：函数基础定义、权限、作用域、特性】======================
+/*知识点总结
+1.语法：func 函数名(入参)(返回){}，main为程序入口；
+2.命名：大写导出(跨包可用)，小写私有(仅本包)；
+3.规则：Go无函数重载、无默认参数；函数内部不能定义具名函数；
+4.传参：结构体值拷贝，指针传参修改原数据。
+*/
+//大写导出函数
+func AddScore(u *User, num int) {
+	u.Score += num
+}
+
+// 小写私有函数
+func reduceScore(u *User, num int) {
+	u.Score -= num
+}
+
+// ======================【知识点2：函数参数：普通参数+可变参数...+切片打散+nil函数变量】======================
+/*知识点总结
+1.同类型参数简写 a,b int；
+2....T可变参数只能放末尾，底层是切片；实参切片通过 arr...打散传参；
+3.值类型(数组/结构体)值拷贝，切片/map引用共享底层；
+4.函数变量默认零值nil，直接调用panic。
+*/
+func BatchAdd(name string, nums ...int) {
+	sum := 0
+	for _, v := range nums {
+		sum += v
+	}
+	if u, ok := userMap[name]; ok {
+		AddScore(&u, sum)
+		userMap[name] = u
+	}
+}
+
+// ======================【知识点3：返回值：多返回、命名返回、空白标识符_】======================
+/*知识点总结
+1.支持多返回，常用(数据,error)格式；
+2.命名返回：提前定义返回变量，裸return自动返回；
+3._空白标识符丢弃无用返回值。
+*/
+func GetUser(name string) (u User, err error) {
+	u, ok := userMap[name]
+	if !ok {
+		err = fmt.Errorf("用户不存在")
+		return
+	}
+	return
+}
+
+// ======================【知识点4：匿名函数：自执行、赋值变量】======================
+/*知识点总结
+1.无函数名，两种用法：①定义立即执行 func(){}()；②赋值给变量当做普通函数使用；
+2.常用于临时逻辑、协程回调。
+*/
+
+// ======================【知识点5：闭包：捕获外层变量、延长生命周期】======================
+/*知识点总结
+1.匿名函数引用外层局部变量，变量生命周期脱离函数；
+2.每个闭包独立私有变量，互不干扰。
+*/
+func UserCounter() func() int {
+	cnt := 0
+	return func() int {
+		cnt++
+		return cnt
+	}
+}
+
+// ======================【知识点6：高阶函数：自定义函数类型、函数做参数/返回值】======================
+/*知识点总结
+1.type 自定义 func类型；
+2.函数可以作为变量、入参、返回值传入。
+*/
+type Calc func(int) int
+
+func ScoreHandle(name string, num int, f Calc) int {
+	res := f(num)
+	newUser, _ := GetUser(name)
+	AddScore(&newUser, res)
+	userMap[name] = newUser
+	return newUser.Score
+}
+
+// ======================【知识点7：defer延迟调用：倒序执行+return执行顺序】======================
+/*知识点总结
+1.多个defer后进先出倒序执行；注册时立刻拷贝参数；
+2.执行顺序：return赋值→defer执行→函数返回；命名返回可被defer修改。
+*/
+func TestDefer() (res int) {
+	res = 10
+	defer func() {
+		res = 99
+	}()
+	return
+}
+
+// ======================【知识点8：panic&recover异常捕获】======================
+/*知识点总结
+1.panic主动抛出异常，终止逻辑，倒序执行defer；
+2.recover只能写在defer内部，捕获异常防止程序崩溃。
+*/
+func SafeAddScore(name string, val int) int {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("捕获异常：", err)
+		}
+	}()
+	if val < 0 {
+		panic("分值不能为负数")
+	}
+	u, _ := GetUser(name)
+	AddScore(&u, val)
+	userMap[name] = u
+	return u.Score
+}
+
+// ======================【知识点9：递归+尾递归】======================
+/*知识点总结
+1.函数自调用，必须设置终止条件，否则栈溢出；
+2.尾递归：递归在return最后，Go不自动优化尾递归。
+*/
+func RecSum(n int) int {
+	if n == 1 {
+		return 1
+	}
+	return n + RecSum(n-1)
+}
+
+// ======================【知识点10：init特殊初始化函数】======================
+/*知识点总结
+1.func init()无参无返回，无法手动调用，包加载自动执行；
+2.执行顺序：全局变量初始化→init→main，同包多个init从上到下执行。
+*/
+func init() {
+	fmt.Println("===init自动执行，初始化默认管理员===")
+	userMap["admin"] = User{Name: "管理员", Score: 100, Address: Address{City: "西安"}}
+}
+
+// ======================【知识点11：go开启goroutine协程】======================
+/*知识点总结
+1.go + 普通函数/匿名函数 启动协程，异步执行函数逻辑。
+*/
+
+// ======================main统一调用入口======================
+func main() {
+	//2.可变参数+切片打散调用
+	slice := []int{10, 20}
+	BatchAdd("admin", slice...)
+
+	//6.高阶函数调用
+	f := func(x int) int { return x * 2 }
+	ScoreHandle("admin", 5, f)
+
+	//3.多返回、_忽略err
+	user, _ := GetUser("admin")
+	fmt.Println("【3多返回】用户信息：", user)
+
+	//7.defer测试
+	fmt.Println("【7defer修改返回值】结果：", TestDefer())
+
+	//5.闭包调用
+	cnt := UserCounter()
+	fmt.Println("【5闭包计数】", cnt(), cnt())
+
+	//9.递归
+	fmt.Println("【9递归累加1~5】", RecSum(5))
+
+	//8.panic捕获
+	SafeAddScore("admin", -6)
+
+	//4.匿名函数自执行
+	func() {
+		fmt.Println("【4匿名自执行函数】执行完毕")
+	}()
+
+	//json序列化(结构体tag)
+	jsonStr, _ := json.MarshalIndent(user, "", "  ")
+	fmt.Println("【结构体JSON】\n", string(jsonStr))
+
+	//11.协程
+	go func() {
+		fmt.Println("【11协程异步执行】后台任务")
+	}()
+	time.Sleep(time.Millisecond * 20)
+
+	//map key转切片有序输出
+	var keys []string
+	for k := range userMap {
+		keys = append(keys, k)
+	}
+	fmt.Println("map的key存入切片：", keys)
+}

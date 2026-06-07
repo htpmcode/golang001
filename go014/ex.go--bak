@@ -1,0 +1,159 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"unsafe"
+)
+
+// 1.基础结构体 + json标签
+type User struct {
+	Username string `json:"username"` // json别名
+	Age      int    `json:"age,omitempty"`
+	IsVip    bool   `json:"is_vip"`
+	secret   string // 小写私有字段，无法序列化
+}
+
+// ========== User绑定方法：值接收、指针接收 ==========
+// 值接收：只读，不修改原数据
+func (u User) ShowInfo() {
+	fmt.Printf("用户：%s，年龄：%d，会员：%t\n", u.Username, u.Age, u.IsVip)
+}
+
+// 指针接收：修改原结构体数据
+func (u *User) ModifyName(newName string) {
+	u.Username = newName
+}
+
+// 2.嵌套子结构体
+type Address struct {
+	Province string `json:"province"`
+	City     string `json:"city"`
+}
+
+// Address方法
+func (addr *Address) ChangeCity(city string) {
+	addr.City = city
+}
+func (addr Address) ChangeCity1(city string) {
+	addr.City = city
+}
+
+// 具名嵌套
+type Person struct {
+	Name string  `json:"name"`
+	Addr Address `json:"addr"`
+}
+
+// 匿名内嵌结构体（字段自动提升）
+type Student struct {
+	string      // 基础类型匿名字段
+	Age     int `json:"stu_age"`
+	Address     // 结构体匿名嵌入
+}
+
+// Student方法
+func (s *Student) SetAge(age int) {
+	s.Age = age
+}
+
+func main() {
+	// ========== 一、结构体四种初始化方式 ==========
+	// 方式1：var零值初始化
+	var u1 User
+	u1.Username = "零值用户"
+	u1.Age = 18
+	u1.secret = "私密数据"
+	u1.ShowInfo()
+
+	// 方式2：键值初始化（推荐）
+	u2 := User{
+		Username: "张三",
+		Age:      20,
+		IsVip:    true,
+	}
+	// 调用指针方法，值变量语法糖自动取地址
+	u2.ModifyName("张三改名")
+	u2.ShowInfo()
+
+	// 方式3：顺序初始化
+	//u3 := User{"李四", 0, false, "隐私"}
+
+	// 方式4：指针初始化
+	u4 := &User{
+		Username: "指针用户",
+		IsVip:    true,
+	}
+	u4.ModifyName("指针改名")
+	fmt.Println(*u4)
+
+	// ========== 二、具名嵌套结构体 ==========
+	p := Person{
+		Name: "李四",
+		Addr: Address{
+			Province: "广东",
+			City:     "深圳",
+		},
+	}
+	//p.Addr.ChangeCity("广州")
+	p.Addr.ChangeCity1("广州1111")
+
+	//fmt.Println("嵌套地址：", p.Addr.City)
+	fmt.Println("嵌套地址：", p.Addr.City)
+
+	// ========== 三、匿名内嵌结构体 ==========
+	s := Student{
+		string: "王五",
+		Age:    18,
+		Address: Address{
+			Province: "北京",
+			City:     "朝阳",
+		},
+	}
+	s.SetAge(19)
+	fmt.Println("学生姓名：", s.string, "省份：", s.Province, "年龄：", s.Age)
+
+	// ========== 四、结构体是值类型：赋值拷贝测试 ==========
+	origin := User{Username: "原值", Age: 22}
+	copyUser := origin // 完整值拷贝
+	copyUser.Username = "副本修改"
+	fmt.Printf("原数据:%+v,拷贝数据:%+v\n", origin, copyUser)
+
+	// ========== 五、JSON序列化&反序列化 ==========
+	// 序列化：结构体→json
+	jsonByte, err := json.MarshalIndent(u2, "", "  ")
+	if err == nil {
+		fmt.Println("\n用户json：")
+		fmt.Println(string(jsonByte))
+	}
+
+	// 反序列化：json→结构体
+	jsonStr := `{"username":"反序列化用户","age":25,"is_vip":true}`
+	var unUser User
+	_ = json.Unmarshal([]byte(jsonStr), &unUser)
+	fmt.Println("反序列化结果：", unUser)
+
+	// ========== 六、内存对齐优化演示 ==========
+	// 字段乱序，产生内存空洞
+	type Demo1 struct {
+		a bool  //1
+		b int64 //8
+		c bool  //1
+	}
+	// 大类型放前面，节省内存
+	type Demo2 struct {
+		b int64
+		a bool
+		c bool
+	}
+	fmt.Printf("\nDemo1占用字节：%d\n", unsafe.Sizeof(Demo1{}))
+	fmt.Printf("Demo2占用字节：%d\n", unsafe.Sizeof(Demo2{}))
+
+	// ========== 七、匿名结构体临时使用 ==========
+	temp := struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	}{200, "请求成功"}
+	tempJson, _ := json.Marshal(temp)
+	fmt.Println("匿名结构体json：", string(tempJson))
+}
